@@ -7,6 +7,7 @@ import config
 from player import Player
 from obstacle import ObstaclePool, Obstacle, Drone, LaserBarrier
 from particle import ParticleEmitter
+from sound import SoundManager
 
 class Game:
     # State Machine Constants
@@ -25,6 +26,8 @@ class Game:
         self.state: int = self.STATE_MENU
 
         # Sprites & Performance Groups
+        self.sound_manager: SoundManager = SoundManager()
+        self.last_milestone_score: int = 0
         self.player: Player = Player()
         self.obstacle_pool: ObstaclePool = ObstaclePool()
         self.emitter: ParticleEmitter = ParticleEmitter()
@@ -97,7 +100,9 @@ class Game:
 
     def start_game(self) -> None:
         """Resets variables and enters the active running state."""
+        self.sound_manager.play_start()
         self.state = self.STATE_PLAYING
+        self.last_milestone_score = 0
         self.score = 0.0
         self.game_speed = config.OBSTACLE_BASE_SPEED
         self.spawn_timer = 0
@@ -133,13 +138,15 @@ class Game:
                     if self.state == self.STATE_MENU:
                         self.start_game()
                     elif self.state == self.STATE_PLAYING:
-                        self.player.jump(self.emitter)
+                        if self.player.jump(self.emitter):
+                            self.sound_manager.play_jump()
                     elif self.state == self.STATE_GAME_OVER:
                         self.start_game()
                         
                 elif event.key in (pygame.K_DOWN, pygame.K_s):
                     if self.state == self.STATE_PLAYING:
-                        self.player.start_duck()
+                        if self.player.start_duck():
+                            self.sound_manager.play_slide()
                         
             elif event.type == pygame.KEYUP:
                 if event.key in (pygame.K_DOWN, pygame.K_s):
@@ -153,6 +160,10 @@ class Game:
         if self.state == self.STATE_PLAYING:
             # 1. Update difficulty and speed mapping
             self.score += 0.1  # Score increases by distance run
+            current_milestone = int(self.score) // 100
+            if current_milestone > self.last_milestone_score:
+                self.last_milestone_score = current_milestone
+                self.sound_manager.play_score()
             self.game_speed = min(
                 config.OBSTACLE_MAX_SPEED, 
                 config.OBSTACLE_BASE_SPEED + (self.score / 100.0) * config.OBSTACLE_SPEED_INCREMENT
@@ -193,6 +204,7 @@ class Game:
                 if pygame.sprite.collide_mask(self.player, obs):
                     # Spawn impact sparks
                     self.emitter.emit_explosion(self.player.rect.centerx, self.player.rect.centery, config.COLOR_MAGENTA)
+                    self.sound_manager.play_crash()
                     self.save_high_score()
                     self.state = self.STATE_GAME_OVER
                     break

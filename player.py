@@ -25,23 +25,27 @@ class Player(pygame.sprite.Sprite):
         # Procedural Animation Counters
         self.animation_time: float = 0.0
         
-    def jump(self, emitter: ParticleEmitter) -> None:
+    def jump(self, emitter: ParticleEmitter) -> bool:
         """Triggers a jump if the runner is on the ground and not ducking."""
         if self.on_ground and not self.is_ducking:
             self.vy = config.JUMP_FORCE
             self.on_ground = False
             # Emit dust explosion at feet
             emitter.emit_dust(self.rect.centerx, config.GROUND_Y, config.COLOR_CYAN, count=12)
+            return True
+        return False
 
-    def start_duck(self) -> None:
+    def start_duck(self) -> bool:
         """Transitions into ducking state, shrinking the collision hitbox."""
-        if self.on_ground:
+        if self.on_ground and not self.is_ducking:
             self.is_ducking = True
             self.height = config.PLAYER_DUCK_HEIGHT
             # Re-position rect to remain anchored to ground
             old_bottom = self.rect.bottom
             self.rect.height = self.height
             self.rect.bottom = old_bottom
+            return True
+        return False
 
     def stop_duck(self) -> None:
         """Transitions out of ducking state, restoring original hitbox size."""
